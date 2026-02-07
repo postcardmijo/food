@@ -5,12 +5,23 @@ import { SimplePieChart } from "@/components/pie-chart";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { boxItems, calculateTotals } from "@/constants/nutrition";
 import { Fonts } from "@/constants/theme";
+import { useMeals } from "@/contexts/MealsContext";
 
-const totals = calculateTotals(boxItems);
-
+// compute totals from shared meals context so view updates live
 export default function TabTwoScreen() {
+  const { meals } = useMeals();
+
+  const totals = meals.reduce(
+    (acc, m) => ({
+      fat: acc.fat + (m.fat ?? 0),
+      protein: acc.protein + (m.protein ?? 0),
+      carbs: acc.carbs + (m.carbs ?? 0),
+    }),
+    { fat: 0, protein: 0, carbs: 0 },
+  );
+
+  const totalSum = totals.fat + totals.protein + totals.carbs;
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: "#D0D0D0", dark: "#353636" }}
@@ -64,26 +75,34 @@ export default function TabTwoScreen() {
         <ThemedText type="subtitle" style={styles.chartTitle}>
           Macronutrient Distribution
         </ThemedText>
-        <SimplePieChart
-          fat={totals.fat}
-          protein={totals.protein}
-          carbs={totals.carbs}
-          size={250}
-        />
+        {totalSum > 0 ? (
+          <SimplePieChart
+            fat={totals.fat}
+            protein={totals.protein}
+            carbs={totals.carbs}
+            size={250}
+          />
+        ) : (
+          <ThemedText style={{ opacity: 0.7 }}>No meals logged.</ThemedText>
+        )}
       </ThemedView>
 
       {/* <ThemedView style={styles.itemsContainer}>
         <ThemedText type="subtitle" style={styles.itemsTitle}>
           Items Breakdown
         </ThemedText>
-        {boxItems.map((item) => (
-          <ThemedView key={item.id} style={styles.itemRow}>
-            <ThemedText style={styles.itemName}>{item.title}</ThemedText>
-            <ThemedText style={styles.itemMacros}>
-              F: {item.fat}g | P: {item.protein}g | C: {item.carbs}g
-            </ThemedText>
-          </ThemedView>
-        ))}
+        {meals.length === 0 ? (
+          <ThemedText style={{ opacity: 0.7 }}>No meals logged.</ThemedText>
+        ) : (
+          meals.map((item) => (
+            <ThemedView key={item.id} style={styles.itemRow}>
+              <ThemedText style={styles.itemName}>{item.title}</ThemedText>
+              <ThemedText style={styles.itemMacros}>
+                F: {item.fat}g | P: {item.protein}g | C: {item.carbs}g
+              </ThemedText>
+            </ThemedView>
+          ))
+        )}
       </ThemedView> */}
     </ParallaxScrollView>
   );

@@ -1,29 +1,24 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import React, { useState } from "react";
+import React from "react";
 import {
   Animated,
   Pressable,
   StyleSheet,
   Text,
   View,
-  useColorScheme
+  useColorScheme,
 } from "react-native";
-import { GestureHandlerRootView, Swipeable } from "react-native-gesture-handler";
+import {
+  GestureHandlerRootView,
+  Swipeable,
+} from "react-native-gesture-handler";
 
-import { HelloWave } from "@/components/hello-wave";
 import ParallaxScrollView from "@/components/parallax-scroll-view";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { useMeals } from "@/contexts/MealsContext";
 import { Link } from "expo-router";
-
-// 1. Initial Data
-const initialMeals = [
-  { id: 1, title: "Avocado Toast & Eggs", protein: 24, carbs: 30, fat: 18 },
-  { id: 2, title: "Grilled Chicken Salad", protein: 45, carbs: 12, fat: 15 },
-  { id: 3, title: "Greek Yogurt Parfait", protein: 18, carbs: 28, fat: 6 },
-  { id: 4, title: "Salmon & Quinoa Bowl", protein: 38, carbs: 45, fat: 22 },
-];
 
 const Colors = {
   light: {
@@ -51,14 +46,9 @@ const MACRO_COLORS = {
 };
 
 export default function HomeScreen() {
-  const [meals, setMeals] = useState(initialMeals);
+  const { meals, deleteMeal } = useMeals();
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
-
-  // Function to handle deletion
-  const deleteMeal = (id: number) => {
-    setMeals((currentMeals) => currentMeals.filter((meal) => meal.id !== id));
-  };
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -81,10 +71,11 @@ export default function HomeScreen() {
               Daily Intake
             </ThemedText>
           </View>
-          <HelloWave />
         </ThemedView>
 
-        <ThemedText style={[styles.sectionTitle, { color: theme.textSecondary }]}>
+        <ThemedText
+          style={[styles.sectionTitle, { color: theme.textSecondary }]}
+        >
           Today's Meals
         </ThemedText>
 
@@ -98,12 +89,21 @@ export default function HomeScreen() {
                 onDelete={() => deleteMeal(item.id)}
               />
             ))}
-            
+
             {meals.length === 0 && (
-                <View style={styles.emptyState}>
-                    <Ionicons name="nutrition-outline" size={48} color={theme.textSecondary} style={{opacity: 0.5}} />
-                    <ThemedText style={{color: theme.textSecondary, marginTop: 10}}>No meals logged.</ThemedText>
-                </View>
+              <View style={styles.emptyState}>
+                <Ionicons
+                  name="nutrition-outline"
+                  size={48}
+                  color={theme.textSecondary}
+                  style={{ opacity: 0.5 }}
+                />
+                <ThemedText
+                  style={{ color: theme.textSecondary, marginTop: 10 }}
+                >
+                  No meals logged.
+                </ThemedText>
+              </View>
             )}
           </View>
         </View>
@@ -138,24 +138,23 @@ function SwipeableMealCard({
   theme: any;
   onDelete: () => void;
 }) {
-  
   // This renders the red background when you drag
   const renderRightActions = (
     progress: Animated.AnimatedInterpolation<number>,
-    dragX: Animated.AnimatedInterpolation<number>
+    dragX: Animated.AnimatedInterpolation<number>,
   ) => {
     // Animate the trash icon sliding in
     const scale = dragX.interpolate({
       inputRange: [-100, 0],
       outputRange: [1, 0],
-      extrapolate: 'clamp',
+      extrapolate: "clamp",
     });
 
     return (
       <View style={styles.deleteActionContainer}>
-        <Animated.View style={{ transform: [{ scale }], alignItems: 'center' }}>
-            <Ionicons name="trash-outline" size={30} color="white" />
-            <Text style={styles.deleteButtonText}>Deleted!</Text>
+        <Animated.View style={{ transform: [{ scale }], alignItems: "center" }}>
+          <Ionicons name="trash-outline" size={30} color="white" />
+          <Text style={styles.deleteButtonText}>Deleted!</Text>
         </Animated.View>
       </View>
     );
@@ -167,8 +166,8 @@ function SwipeableMealCard({
       // CRITICAL CHANGE: This fires the delete function automatically
       // when the user swipes "open" (swipes left).
       onSwipeableOpen={(direction) => {
-        if (direction === 'right') {
-            onDelete();
+        if (direction === "right") {
+          onDelete();
         }
       }}
       // Determines how far you have to swipe to trigger the delete
@@ -177,14 +176,23 @@ function SwipeableMealCard({
     >
       <View style={[styles.card, { backgroundColor: theme.card }]}>
         <View style={styles.cardHeader}>
-          <View style={[styles.iconContainer, { backgroundColor: theme.iconBg }]}>
+          <View
+            style={[styles.iconContainer, { backgroundColor: theme.iconBg }]}
+          >
             <Ionicons name="restaurant" size={18} color={theme.primary} />
           </View>
           <ThemedText type="defaultSemiBold" style={styles.cardTitle}>
             {item.title}
           </ThemedText>
-          <Ionicons name="chevron-back" size={16} color={theme.textSecondary} style={{opacity: 0.3}} /> 
-          <Text style={{fontSize: 10, color: theme.textSecondary}}>Swipe to Delete</Text>
+          <Ionicons
+            name="chevron-back"
+            size={16}
+            color={theme.textSecondary}
+            style={{ opacity: 0.3 }}
+          />
+          <Text style={{ fontSize: 10, color: theme.textSecondary }}>
+            Swipe to Delete
+          </Text>
         </View>
 
         <View style={[styles.divider, { backgroundColor: theme.border }]} />
@@ -214,12 +222,24 @@ function SwipeableMealCard({
   );
 }
 
-function MacroPill({ label, value, color, textColor }: { label: string; value: number; color: string; textColor: string }) {
+function MacroPill({
+  label,
+  value,
+  color,
+  textColor,
+}: {
+  label: string;
+  value: number;
+  color: string;
+  textColor: string;
+}) {
   return (
     <View style={styles.macroPill}>
       <View style={[styles.dot, { backgroundColor: color }]} />
       <ThemedText style={styles.macroValue}>{value}g</ThemedText>
-      <ThemedText style={[styles.macroLabel, { color: textColor }]}>{label}</ThemedText>
+      <ThemedText style={[styles.macroLabel, { color: textColor }]}>
+        {label}
+      </ThemedText>
     </View>
   );
 }
@@ -344,11 +364,11 @@ const styles = StyleSheet.create({
   // Swipe Styles
   deleteActionContainer: {
     flex: 1,
-    backgroundColor: "#FF5252", 
+    backgroundColor: "#FF5252",
     justifyContent: "center",
-    alignItems: "flex-end", 
+    alignItems: "flex-end",
     marginBottom: 16,
-    marginTop: 1, 
+    marginTop: 1,
     borderRadius: 16,
     paddingRight: 32, // Padding ensures the icon isn't too close to the edge
   },
@@ -359,8 +379,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   emptyState: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 40,
-  }
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
+  },
 });
