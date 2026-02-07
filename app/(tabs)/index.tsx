@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { ScrollView, StyleSheet, View, useColorScheme } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View, useColorScheme } from "react-native";
 
 import { HelloWave } from "@/components/hello-wave";
 import ParallaxScrollView from "@/components/parallax-scroll-view";
@@ -8,43 +8,18 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Link } from "expo-router";
 
-// 1. Realistic Meal Data (Replacing the sample import)
+// 1. Realistic Meal Data
 const dailyMeals = [
-  {
-    id: 1,
-    title: "Avocado Toast & Eggs",
-    protein: 24,
-    carbs: 30,
-    fat: 18,
-  },
-  {
-    id: 2,
-    title: "Grilled Chicken Salad",
-    protein: 45,
-    carbs: 12,
-    fat: 15,
-  },
-  {
-    id: 3,
-    title: "Greek Yogurt Parfait",
-    protein: 18,
-    carbs: 28,
-    fat: 6,
-  },
-  {
-    id: 4,
-    title: "Salmon & Quinoa Bowl",
-    protein: 38,
-    carbs: 45,
-    fat: 22,
-  },
+  { id: 1, title: "Avocado Toast & Eggs", protein: 24, carbs: 30, fat: 18 },
+  { id: 2, title: "Grilled Chicken Salad", protein: 45, carbs: 12, fat: 15 },
+  { id: 3, title: "Greek Yogurt Parfait", protein: 18, carbs: 28, fat: 6 },
+  { id: 4, title: "Salmon & Quinoa Bowl", protein: 38, carbs: 45, fat: 22 },
 ];
 
-// 2. Define Colors (Updated Button to Red)
+// 2. Define Colors
 const Colors = {
   light: {
-    primary: "#4CAF50", // Keep theme green for headers/icons
-    button: "#D32F2F",  // RED for the button
+    primary: "#4CAF50",
     background: "#f8f9fa",
     card: "#ffffff",
     textSecondary: "#6c757d",
@@ -53,7 +28,6 @@ const Colors = {
   },
   dark: {
     primary: "#66BB6A",
-    button: "#FF5252",  // Lighter RED for dark mode visibility
     background: "#000000",
     card: "#1E1E1E",
     textSecondary: "#9BA1A6",
@@ -105,11 +79,7 @@ export default function HomeScreen() {
         contentContainerStyle={styles.boxesContent}
       >
         {dailyMeals.map((item) => (
-          <View
-            key={item.id}
-            style={[styles.card, { backgroundColor: theme.card }]}
-          >
-            {/* Card Header */}
+          <View key={item.id} style={[styles.card, { backgroundColor: theme.card }]}>
             <View style={styles.cardHeader}>
               <View style={[styles.iconContainer, { backgroundColor: theme.iconBg }]}>
                 <Ionicons name="restaurant" size={18} color={theme.primary} />
@@ -120,66 +90,48 @@ export default function HomeScreen() {
               <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
             </View>
 
-            {/* Divider */}
             <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
-            {/* Macros Row */}
             <View style={styles.macrosContainer}>
-              <MacroPill
-                label="Protein"
-                value={item.protein}
-                color={MACRO_COLORS.protein}
-                textColor={theme.textSecondary}
-              />
-              <MacroPill
-                label="Carbs"
-                value={item.carbs}
-                color={MACRO_COLORS.carbs}
-                textColor={theme.textSecondary}
-              />
-              <MacroPill
-                label="Fat"
-                value={item.fat}
-                color={MACRO_COLORS.fat}
-                textColor={theme.textSecondary}
-              />
+              <MacroPill label="Protein" value={item.protein} color={MACRO_COLORS.protein} textColor={theme.textSecondary} />
+              <MacroPill label="Carbs" value={item.carbs} color={MACRO_COLORS.carbs} textColor={theme.textSecondary} />
+              <MacroPill label="Fat" value={item.fat} color={MACRO_COLORS.fat} textColor={theme.textSecondary} />
             </View>
           </View>
         ))}
       </ScrollView>
 
-      {/* Action Button Section */}
-      <ThemedView style={styles.stepContainer}>
+      {/* FIXED BUTTON SECTION */}
+      {/* We use a specific container to ensure full width */}
+      <View style={styles.buttonContainer}>
         <Link href="/modal" asChild>
-            {/* Explicitly using the theme.button (Red) color here */}
-            <View style={[styles.actionButton, { backgroundColor: theme.button }]}>
-              <Ionicons name="add" size={26} color="#fff" style={{ fontWeight: 'bold' }} />
-              <ThemedText style={styles.actionButtonText}>LOG NEW MEAL</ThemedText>
+          <Pressable 
+            style={({ pressed }) => [
+              styles.actionButton,
+              { opacity: pressed ? 0.8 : 1 }
+            ]}
+          >
+            {/* CRITICAL FIX: 
+              We wrap the content in a View with strict row styling 
+              to prevent vertical stacking.
+            */}
+            <View style={styles.buttonContent}>
+              <Ionicons name="add" size={28} color="#fff" />
+              <Text style={styles.actionButtonText}>LOG NEW MEAL</Text>
             </View>
+          </Pressable>
         </Link>
-      </ThemedView>
+      </View>
     </ParallaxScrollView>
   );
 }
 
-function MacroPill({
-  label,
-  value,
-  color,
-  textColor,
-}: {
-  label: string;
-  value: number;
-  color: string;
-  textColor: string;
-}) {
+function MacroPill({ label, value, color, textColor }: { label: string; value: number; color: string; textColor: string }) {
   return (
     <View style={styles.macroPill}>
       <View style={[styles.dot, { backgroundColor: color }]} />
       <ThemedText style={styles.macroValue}>{value}g</ThemedText>
-      <ThemedText style={[styles.macroLabel, { color: textColor }]}>
-        {label}
-      </ThemedText>
+      <ThemedText style={[styles.macroLabel, { color: textColor }]}>{label}</ThemedText>
     </View>
   );
 }
@@ -271,30 +223,39 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontWeight: "500",
   },
-  stepContainer: {
-    marginBottom: 40, // Added extra bottom margin for scrolling
-    alignItems: "center",
-    paddingHorizontal: 20,
+  
+  // --- BUTTON STYLES FIXED ---
+  buttonContainer: {
+    marginTop: 10,
+    marginBottom: 50,
+    width: "100%", // Ensure the container spans the screen width
+    paddingHorizontal: 20, // Add spacing from screen edges
   },
   actionButton: {
+    backgroundColor: "#D32F2F", // Explicit Red
+    borderRadius: 100,
+    height: 56, // Explicit height helps alignment
+    justifyContent: "center",
+    alignItems: "center",
+    
+    // Shadow
+    shadowColor: "#D32F2F",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  buttonContent: {
+    // This View strictly forces the Row layout
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 18,
-    paddingHorizontal: 32,
-    borderRadius: 100, // Fully rounded pill shape
     gap: 8,
-    width: "100%",
-    shadowColor: "#D32F2F",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 8,
   },
   actionButtonText: {
-    color: "#fff",
-    fontWeight: "800", // Extra bold for visibility
+    color: "#ffffff",
     fontSize: 16,
+    fontWeight: "bold",
     letterSpacing: 0.5,
   },
 });
