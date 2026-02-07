@@ -1,6 +1,7 @@
 import { StyleSheet } from "react-native";
 
 import ParallaxScrollView from "@/components/parallax-scroll-view";
+import { SimplePieChart } from "@/components/pie-chart";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -59,7 +60,19 @@ export default function TabTwoScreen() {
         </ThemedView>
       </ThemedView>
 
-      <ThemedView style={styles.itemsContainer}>
+      <ThemedView style={styles.chartContainer}>
+        <ThemedText type="subtitle" style={styles.chartTitle}>
+          Macronutrient Distribution
+        </ThemedText>
+        <SimplePieChart
+          fat={totals.fat}
+          protein={totals.protein}
+          carbs={totals.carbs}
+          size={250}
+        />
+      </ThemedView>
+
+      {/* <ThemedView style={styles.itemsContainer}>
         <ThemedText type="subtitle" style={styles.itemsTitle}>
           Items Breakdown
         </ThemedText>
@@ -71,7 +84,7 @@ export default function TabTwoScreen() {
             </ThemedText>
           </ThemedView>
         ))}
-      </ThemedView>
+      </ThemedView> */}
     </ParallaxScrollView>
   );
 }
@@ -124,6 +137,15 @@ const styles = StyleSheet.create({
   },
   itemsTitle: {
     marginBottom: 12,
+  },
+  chartContainer: {
+    marginVertical: 24,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    gap: 12,
+  },
+  chartTitle: {
+    marginBottom: 8,
   },
   itemRow: {
     flexDirection: "row",
