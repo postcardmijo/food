@@ -9,8 +9,7 @@ import {
   View,
   useColorScheme
 } from "react-native";
-import { GestureHandlerRootView, RectButton } from "react-native-gesture-handler";
-import Swipeable from "react-native-gesture-handler/Swipeable";
+import { GestureHandlerRootView, Swipeable } from "react-native-gesture-handler";
 
 import { HelloWave } from "@/components/hello-wave";
 import ParallaxScrollView from "@/components/parallax-scroll-view";
@@ -58,12 +57,10 @@ export default function HomeScreen() {
 
   // Function to handle deletion
   const deleteMeal = (id: number) => {
-    // Optional: Add vibration or sound here
     setMeals((currentMeals) => currentMeals.filter((meal) => meal.id !== id));
   };
 
   return (
-    // GestureHandlerRootView is required for gestures to work on Android/iOS
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ParallaxScrollView
         headerBackgroundColor={{ light: "#E8F5E9", dark: "#121212" }}
@@ -105,7 +102,7 @@ export default function HomeScreen() {
             {meals.length === 0 && (
                 <View style={styles.emptyState}>
                     <Ionicons name="nutrition-outline" size={48} color={theme.textSecondary} style={{opacity: 0.5}} />
-                    <ThemedText style={{color: theme.textSecondary, marginTop: 10}}>No meals logged yet.</ThemedText>
+                    <ThemedText style={{color: theme.textSecondary, marginTop: 10}}>No meals logged.</ThemedText>
                 </View>
             )}
           </View>
@@ -131,7 +128,7 @@ export default function HomeScreen() {
   );
 }
 
-// --- NEW COMPONENT: Swipeable Meal Card ---
+// --- UPDATED COMPONENT: Auto-Delete on Swipe ---
 function SwipeableMealCard({
   item,
   theme,
@@ -141,29 +138,25 @@ function SwipeableMealCard({
   theme: any;
   onDelete: () => void;
 }) {
-  // Render the "Delete" action behind the card
+  
+  // This renders the red background when you drag
   const renderRightActions = (
     progress: Animated.AnimatedInterpolation<number>,
     dragX: Animated.AnimatedInterpolation<number>
   ) => {
-    const trans = dragX.interpolate({
+    // Animate the trash icon sliding in
+    const scale = dragX.interpolate({
       inputRange: [-100, 0],
-      outputRange: [0, 100], // Slide in from right
+      outputRange: [1, 0],
+      extrapolate: 'clamp',
     });
 
     return (
       <View style={styles.deleteActionContainer}>
-        <RectButton style={styles.deleteButton} onPress={onDelete}>
-            {/* We animate the icon slightly for a polished feel */}
-          <Animated.View
-            style={{
-              transform: [{ translateX: trans }],
-            }}
-          >
-            <Ionicons name="trash-outline" size={24} color="white" />
-            <Text style={styles.deleteButtonText}>Delete</Text>
-          </Animated.View>
-        </RectButton>
+        <Animated.View style={{ transform: [{ scale }], alignItems: 'center' }}>
+            <Ionicons name="trash-outline" size={30} color="white" />
+            <Text style={styles.deleteButtonText}>Deleted!</Text>
+        </Animated.View>
       </View>
     );
   };
@@ -171,8 +164,16 @@ function SwipeableMealCard({
   return (
     <Swipeable
       renderRightActions={renderRightActions}
-      rightThreshold={40}
-      // overshootRight={false} // Uncomment if you don't want the elastic effect
+      // CRITICAL CHANGE: This fires the delete function automatically
+      // when the user swipes "open" (swipes left).
+      onSwipeableOpen={(direction) => {
+        if (direction === 'right') {
+            onDelete();
+        }
+      }}
+      // Determines how far you have to swipe to trigger the delete
+      friction={2}
+      rightThreshold={80} // Must swipe 80px to trigger
     >
       <View style={[styles.card, { backgroundColor: theme.card }]}>
         <View style={styles.cardHeader}>
@@ -183,7 +184,7 @@ function SwipeableMealCard({
             {item.title}
           </ThemedText>
           <Ionicons name="chevron-back" size={16} color={theme.textSecondary} style={{opacity: 0.3}} /> 
-          <Text style={{fontSize: 10, color: theme.textSecondary}}>Swipe</Text>
+          <Text style={{fontSize: 10, color: theme.textSecondary}}>Swipe to Delete</Text>
         </View>
 
         <View style={[styles.divider, { backgroundColor: theme.border }]} />
@@ -213,24 +214,12 @@ function SwipeableMealCard({
   );
 }
 
-function MacroPill({
-  label,
-  value,
-  color,
-  textColor,
-}: {
-  label: string;
-  value: number;
-  color: string;
-  textColor: string;
-}) {
+function MacroPill({ label, value, color, textColor }: { label: string; value: number; color: string; textColor: string }) {
   return (
     <View style={styles.macroPill}>
       <View style={[styles.dot, { backgroundColor: color }]} />
       <ThemedText style={styles.macroValue}>{value}g</ThemedText>
-      <ThemedText style={[styles.macroLabel, { color: textColor }]}>
-        {label}
-      </ThemedText>
+      <ThemedText style={[styles.macroLabel, { color: textColor }]}>{label}</ThemedText>
     </View>
   );
 }
@@ -352,24 +341,16 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     letterSpacing: 0.5,
   },
-  
-  // --- SWIPE STYLES ---
+  // Swipe Styles
   deleteActionContainer: {
     flex: 1,
-    backgroundColor: "#FF5252", // Bright red background for the swipe area
+    backgroundColor: "#FF5252", 
     justifyContent: "center",
-    alignItems: "flex-end", // Align text/icon to the right
-    marginBottom: 16, // Matches the gap of the list
-    marginTop: 1, // Tiny adjustment for border alignment
-    borderRadius: 16, // Match card radius
-    // We only want the radius on the right side to look good during swipe, 
-    // but applying to all is generally safer for varied swipe distances.
-  },
-  deleteButton: {
-    width: 100, // How wide the swipe area is active
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
+    alignItems: "flex-end", 
+    marginBottom: 16,
+    marginTop: 1, 
+    borderRadius: 16,
+    paddingRight: 32, // Padding ensures the icon isn't too close to the edge
   },
   deleteButtonText: {
     color: "white",
