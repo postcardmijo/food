@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -10,7 +11,6 @@ import {
   useColorScheme,
   View,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -138,6 +138,7 @@ export async function getFoodItems(): Promise<any> {
   }
 
   const filtered: any = Object.entries(finalData.dining_halls).reduce((acc: any, [id, hall]: any) => {
+    hall.meals.filter((meal: any) => meal.name[0] == '*');
     if (Object.keys(hall.meals).length > 0) acc[HALL_MAP[id]] = { meals: hall.meals };
     return acc;
   }, {});

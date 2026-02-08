@@ -1,16 +1,17 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, Dimensions, Pressable } from 'react-native';
-import { Image } from 'expo-image';
-import { useMeals } from '@/contexts/MealsContext';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { ThemedText } from '@/components/themed-text';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
+import { ThemedText } from '@/components/themed-text';
+import { Colors } from '@/constants/theme';
+import { useMeals } from '@/contexts/MealsContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Image } from 'expo-image';
+import React, { useMemo, useState } from 'react';
+import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle, Line, Polyline, Text as SvgText } from 'react-native-svg';
 
 export default function ProgressScreen() {
   const colorScheme = useColorScheme();
   const { getProgressData, getDailyProgress } = useMeals();
-  const [timeRange, setTimeRange] = useState<7 | 14 | 30>(30);
+  const [timeRange, setTimeRange] = useState<7 | 30>(7);
 
   const colors = Colors[colorScheme ?? 'light'];
 
@@ -42,13 +43,15 @@ export default function ProgressScreen() {
       maxCalories: calorieValues.length > 0 ? Math.max(...calorieValues) : 0,
       minCalories: calorieValues.length > 0 ? Math.min(...calorieValues.filter((v) => v > 0)) : 0,
       totalProtein: Math.round(proteinValues.reduce((a, b) => a + b, 0)),
-      avgProtein: Math.round(proteinValues.reduce((a, b) => a + b, 0) / timeRange),
+      avgProtein: proteinValues.length > 0 ? Math.round(proteinValues.reduce((a, b) => a + b, 0) / proteinValues.length) : 0,
     };
   }, [dailyProgress, timeRange]);
 
   const maxValue = useMemo(() => {
     if (progressData.length === 0) return 2000;
-    const max = Math.max(...progressData.map((d) => d.value));
+    const values = progressData.map((d) => d.value);
+    const max = Math.max(...values);
+    if (max <= 0) return 2000;
     return Math.ceil(max * 1.1 / 100) * 100; // Round up to nearest 100
   }, [progressData]);
 
@@ -70,7 +73,7 @@ export default function ProgressScreen() {
 
         {/* Time Range Selector */}
         <View style={styles.timeRangeContainer}>
-          {([7, 14, 30] as const).map((range) => (
+          {([7, 30] as const).map((range) => (
             <Pressable
               key={range}
               style={[
@@ -81,7 +84,7 @@ export default function ProgressScreen() {
               <Text
                 style={[
                   styles.timeButtonText,
-                  { color: timeRange === range ? '#fff' : colors.text },
+                  { color: timeRange === range ? '#000' : colors.text },
                 ]}>
                 {range}D
               </Text>
@@ -92,61 +95,111 @@ export default function ProgressScreen() {
         {/* Chart */}
         {progressData.length > 0 ? (
           <View style={styles.chartContainer}>
-            <View style={{ width: '100%' }}>
-              {/* Y-Axis Scale */}
-              <View style={{ flexDirection: 'row', marginBottom: 8 }}>
-                <View style={{ width: 40 }}>
-                  <ThemedText style={{ fontSize: 10, textAlign: 'right', marginBottom: -5 }}>
-                    {Math.round(maxValue)}
-                  </ThemedText>
-                </View>
-              </View>
-
-              {/* Chart Bars */}
-              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2, height: 200 }}>
-                {progressData.map((item, index) => {
-                  const heightPercent = (item.value / maxValue) * 100;
-                  const shouldShowLabel =
-                    progressData.length <= 7 ||
-                    index % Math.ceil(progressData.length / 5) === 0 ||
-                    index === progressData.length - 1;
-
+            <View style={{ width: '100%', alignItems: 'center' }}>
+              <Svg width={Dimensions.get('window').width} height={300}>
+                {/* Grid Lines */}
+                {Array.from({ length: 5 }).map((_, i) => {
+                  const y = (i / 4) * 250 + 20;
                   return (
-                    <View
-                      key={index}
-                      style={{
-                        flex: 1,
-                        alignItems: 'center',
-                      }}>
-                      {/* Bar */}
-                      <View
-                        style={{
-                          width: '80%',
-                          height: `${heightPercent}%`,
-                          backgroundColor: colors.tint,
-                          borderRadius: 4,
-                          opacity: 0.8,
-                        }}
-                      />
-                      {/* Label */}
-                      {shouldShowLabel && (
-                        <ThemedText
-                          style={{
-                            fontSize: 9,
-                            marginTop: 4,
-                            textAlign: 'center',
-                          }}>
-                          {item.date.split('-')[2]}
-                        </ThemedText>
-                      )}
-                    </View>
+                    <Line
+                      key={`grid-${i}`}
+                      x1="50"
+                      y1={y}
+                      x2={Dimensions.get('window').width - 50}
+                      y2={y}
+                      stroke={colors.text}
+                      strokeWidth="0.5"
+                      opacity="0.15"
+                      strokeDasharray="4,4"
+                    />
                   );
                 })}
-              </View>
 
-              {/* X-Axis */}
-              <View style={{ height: 1, backgroundColor: colors.text, opacity: 0.2, marginTop: 8 }} />
+                {/* Y-Axis */}
+                <Line
+                  x1="50"
+                  y1="20"
+                  x2="50"
+                  y2="270"
+                  stroke={colors.text}
+                  strokeWidth="1.5"
+                  opacity="0.5"
+                />
+
+                {/* X-Axis */}
+                <Line
+                  x1="50"
+                  y1="270"
+                  x2={Dimensions.get('window').width - 20}
+                  y2="270"
+                  stroke={colors.text}
+                  strokeWidth="1.5"
+                  opacity="0.5"
+                />
+
+                {/* Y-Axis Labels */}
+                {Array.from({ length: 5 }).map((_, i) => {
+                  const value = Math.round((4 - i) * (maxValue / 4));
+                  const y = (i / 4) * 250 + 20;
+                  return (
+                    <SvgText
+                      key={`y-label-${i}`}
+                      x="40"
+                      y={y + 4}
+                      fontSize="10"
+                      fill={colors.text}
+                      opacity="0.6"
+                      textAnchor="end">
+                      {value}
+                    </SvgText>
+                  );
+                })}
+
+                {/* Line Chart Path */}
+                {progressData.length > 1 && (
+                  <Polyline
+                    points={progressData
+                      .map((item, index) => {
+                        const xSpacing =
+                          (Dimensions.get('window').width - 70) / (progressData.length - 1);
+                        const x = 50 + index * xSpacing;
+                        const yPercent = item.value / maxValue;
+                        const y = 270 - yPercent * 250;
+                        return `${x},${y}`;
+                      })
+                      .join(' ')}
+                    stroke={colors.tint}
+                    strokeWidth="2.5"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                )}
+
+                {/* Data Points (Dots) */}
+                {progressData.map((item, index) => {
+                  const xSpacing =
+                    (Dimensions.get('window').width - 70) / Math.max(progressData.length - 1, 1);
+                  const x = 50 + index * xSpacing;
+                  const yPercent = item.value / maxValue;
+                  const y = 270 - yPercent * 250;
+
+                  return (
+                    <Circle
+                      key={`point-${index}`}
+                      cx={x}
+                      cy={y}
+                      r="3.5"
+                      fill={colors.tint}
+                      opacity="0.9"
+                    />
+                  );
+                })}
+              </Svg>
             </View>
+            <ThemedText style={{ textAlign: 'center', fontSize: 11, marginTop: 8, opacity: 0.6 }}>
+              Calorie Intake Over {timeRange} Days
+            </ThemedText>
           </View>
         ) : (
           <View style={styles.emptyContainer}>
