@@ -138,7 +138,12 @@ export async function getFoodItems(): Promise<any> {
   }
 
   const filtered: any = Object.entries(finalData.dining_halls).reduce((acc: any, [id, hall]: any) => {
-    hall.meals.filter((meal: any) => meal.name[0] == '*');
+    console.log(hall.meals);
+    hall.meals = Object.entries(hall.meals).reduce((accMeal: any, [mealName, stations]: any) => {
+      if (mealName[0] != "*") accMeal[mealName] = stations;
+      return accMeal;
+    }, {});
+    console.log(hall.meals);
     if (Object.keys(hall.meals).length > 0) acc[HALL_MAP[id]] = { meals: hall.meals };
     return acc;
   }, {});
