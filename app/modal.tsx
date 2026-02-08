@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Platform,
@@ -10,6 +10,7 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -47,87 +48,104 @@ const Colors = {
   },
 };
 
-// --- MOCK DATA ---
-const DINING_HALLS = ["North Campus", "South Campus", "Central Commons"];
+// Single merged function returning raw, filtered and layout data.
+export async function getFoodItems(): Promise<any> {
 
-const STATIONS: Record<string, string[]> = {
-  "North Campus": ["The Grill", "Pasta Station", "Salad Bar"],
-  "South Campus": ["Homestyle", "Pizza Oven", "Deli"],
-  "Central Commons": ["Wok", "Vegan Corner", "Dessert"],
-};
+  const ORG = "uga";
+  const HALL_MAP: any = {
+    "dining-hall-1": "Bolton Dining Commons",
+    "dining-hall-2": "Oglethorpe Dining Commons",
+    "dining-hall-3": "Snelling Dining Commons",
+    "dining-hall-4": "The Niche (Health Sciences Campus)",
+    "dining-hall-5": "The Village Summit (Joe Frank Harris)",
+  };
 
-const FOOD_ITEMS: Record<string, any[]> = {
-  "The Grill": [
-    {
-      id: "g1",
-      name: "Cheeseburger",
-      protein: 25,
-      carbs: 30,
-      fat: 18,
-      calories: 450,
-    },
-    {
-      id: "g2",
-      name: "Grilled Chicken Breast",
-      protein: 30,
-      carbs: 0,
-      fat: 4,
-      calories: 180,
-    },
-    {
-      id: "g3",
-      name: "Fries (Small)",
-      protein: 3,
-      carbs: 40,
-      fat: 14,
-      calories: 320,
-    },
-  ],
-  "Pasta Station": [
-    {
-      id: "p1",
-      name: "Alfredo Pasta",
-      protein: 12,
-      carbs: 60,
-      fat: 22,
-      calories: 550,
-    },
-    {
-      id: "p2",
-      name: "Marinara Pasta",
-      protein: 8,
-      carbs: 55,
-      fat: 8,
-      calories: 380,
-    },
-    {
-      id: "p3",
-      name: "Garlic Bread",
-      protein: 4,
-      carbs: 20,
-      fat: 8,
-      calories: 180,
-    },
-  ],
-  default: [
-    {
-      id: "d1",
-      name: "Generic Meal A",
-      protein: 20,
-      carbs: 40,
-      fat: 10,
-      calories: 400,
-    },
-    {
-      id: "d2",
-      name: "Generic Meal B",
-      protein: 15,
-      carbs: 30,
-      fat: 12,
-      calories: 350,
-    },
-  ],
-};
+  const DINING_HALLS = Object.keys(HALL_MAP);
+  const MEALS = [
+    "breakfast",
+    "lunch",
+    "dinner",
+    "late-1",
+    "late-2",
+    "over-night",
+  ];
+
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  const dateString = `${year}-${month}-${day}`;
+  const urlFor = (hall: any, meal: any) =>
+    `https://${ORG}.api.nutrislice.com/menu/api/weeks/school/${hall}/menu-type/${meal}/${year}/${month}/${day}/?format=json`;
+
+  const tasks: Promise<any>[] = [];
+
+  for (const hall of DINING_HALLS) {
+    for (const meal of MEALS) {
+      tasks.push(
+        (async () => {
+          const url = urlFor(hall, meal);
+          try {
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error(`Status ${resp.status}`);
+            const data: any = await resp.json();
+            const todayData = (data.days || []).find((d: any) => d.date === dateString);
+            if (!todayData) return { hallId: hall, meal, items: [], stationsLookup: {} };
+
+            const stationsLookup: any = {};
+            if (todayData.menu_info) {
+              for (const id of Object.keys(todayData.menu_info)) {
+                const info: any = todayData.menu_info[id];
+                stationsLookup[id] = info.section_options?.display_name || `Station ${id}`;
+              }
+            }
+
+            const items: any[] = (todayData.menu_items || []).filter((it: any) => Boolean(it.food));
+            return { hallId: hall, meal, items, stationsLookup };
+          } catch (err: any) {
+            return { hallId: hall, meal, items: [], stationsLookup: {}, error: err?.message ?? String(err) };
+          }
+        })(),
+      );
+    }
+  }
+
+  const results = await Promise.all(tasks);
+
+  const finalData: any = { date: dateString, updated_at: new Date().toISOString(), dining_halls: {} };
+
+  for (const res of results) {
+    if (!finalData.dining_halls[res.hallId]) {
+      finalData.dining_halls[res.hallId] = { info: { id: res.hallId, name: HALL_MAP[res.hallId] }, meals: {} };
+    }
+
+    if (res.items && res.items.length > 0) {
+      const grouped: any = {};
+      for (const item of res.items) {
+        const stationName = res.stationsLookup[item.menu_id] || `Unknown Station (${item.menu_id})`;
+        if (!grouped[stationName]) grouped[stationName] = [];
+
+        let dietary: any[] = [];
+        if (item.food && item.food.icons && typeof item.food.icons === 'object') {
+          dietary = Object.values(item.food.icons).map((ic: any) => ic.external_name || ic.label).filter(Boolean);
+        }
+
+        grouped[stationName].push({ name: item.food.name, description: item.food.description, dietary_info: dietary, nutrition: item.food.rounded_nutrition_info || {} });
+      }
+
+      finalData.dining_halls[res.hallId].meals[res.meal] = grouped;
+    }
+  }
+
+  const filtered: any = Object.entries(finalData.dining_halls).reduce((acc: any, [id, hall]: any) => {
+    if (Object.keys(hall.meals).length > 0) acc[HALL_MAP[id]] = { meals: hall.meals };
+    return acc;
+  }, {});
+
+  const layout = Object.keys(filtered);
+
+  return {filtered};
+}
 
 export default function ModalScreen() {
   const router = useRouter();
@@ -137,46 +155,103 @@ export default function ModalScreen() {
   const theme = Colors[colorScheme];
 
   // --- STATE ---
+  const [apiData, setApiData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [selectedHall, setSelectedHall] = useState<string | null>(null);
+  const [selectedMeal, setSelectedMeal] = useState<string | null>(null);
   const [selectedStation, setSelectedStation] = useState<string | null>(null);
   const [selectedFoodIds, setSelectedFoodIds] = useState<Set<string>>(
     new Set(),
   );
   const [servingSize, setServingSize] = useState(1);
 
-  // --- CALCULATIONS ---
-  const currentStationFoods = selectedStation
-    ? FOOD_ITEMS[selectedStation] || FOOD_ITEMS["default"]
+  // --- FETCH API DATA WITH CACHING ---
+  useEffect(() => {
+    async function fetchFoodWithCache() {
+      try {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, "0");
+        const day = String(today.getDate()).padStart(2, "0");
+        const dateString = `${year}-${month}-${day}`;
+        const cacheKey = `foodData_${dateString}`;
+
+        // Try to get cached data
+        const cachedData = await AsyncStorage.getItem(cacheKey);
+        if (cachedData) {
+          console.log("Using cached food data from", dateString);
+          setApiData(JSON.parse(cachedData));
+          setLoading(false);
+          return;
+        }
+
+        // Fetch fresh data if not cached
+        console.log("Fetching fresh food data for", dateString);
+        const data = await getFoodItems();
+        setApiData(data);
+
+        // Cache the data
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(data));
+      } catch (error) {
+        console.error("Error fetching food data:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchFoodWithCache();
+  }, []);
+
+  const HALL_MAP: any = {
+    "dining-hall-1": "Bolton Dining Commons",
+    "dining-hall-2": "Oglethorpe Dining Commons",
+    "dining-hall-3": "Snelling Dining Commons",
+    "dining-hall-4": "The Niche (Health Sciences Campus)",
+    "dining-hall-5": "The Village Summit (Joe Frank Harris)",
+  };
+
+  // --- DERIVED DATA FROM API ---
+  const availableHalls = apiData?.filtered ? Object.keys(apiData.filtered) : [];
+  const availableMeals = selectedHall && apiData?.filtered?.[selectedHall]?.meals
+    ? Object.keys(apiData.filtered[selectedHall].meals)
     : [];
+  const availableStations = selectedHall && selectedMeal && apiData?.filtered?.[selectedHall]?.meals?.[selectedMeal]
+    ? Object.keys(apiData.filtered[selectedHall].meals[selectedMeal])
+    : [];
+  const currentStationFoods = selectedHall && selectedMeal && selectedStation && apiData?.filtered?.[selectedHall]?.meals?.[selectedMeal]?.[selectedStation]
+    ? apiData.filtered[selectedHall].meals[selectedMeal][selectedStation]
+    : [];
+
+
 
   const totals = useMemo(() => {
     let p = 0,
       c = 0,
-      f = 0,
-      cal = 0;
-    currentStationFoods.forEach((item) => {
-      if (selectedFoodIds.has(item.id)) {
-        p += item.protein;
-        c += item.carbs;
-        f += item.fat;
-        cal += item.calories;
+      f = 0;
+    currentStationFoods.forEach((item: any) => {
+      if (selectedFoodIds.has(item.name || "")) {
+        const nutrition = item.nutrition || {};
+        p += nutrition.g_protein || 0;
+        c += nutrition.g_carbs || 0;
+        f += nutrition.g_fat || 0;
       }
     });
+    // Calculate calories: 4 cal/g protein, 4 cal/g carbs, 9 cal/g fat
+    const calories = (p * 4) + (c * 4) + (f * 9);
     return {
       protein: Math.round(p * servingSize),
       carbs: Math.round(c * servingSize),
       fat: Math.round(f * servingSize),
-      calories: Math.round(cal * servingSize),
+      calories: Math.round(calories * servingSize),
     };
   }, [selectedFoodIds, servingSize, currentStationFoods]);
 
   // --- HANDLERS ---
-  const toggleFood = (id: string) => {
+  const toggleFood = (foodId: string) => {
     const next = new Set(selectedFoodIds);
-    if (next.has(id)) {
-      next.delete(id);
+    if (next.has(foodId)) {
+      next.delete(foodId);
     } else {
-      next.add(id);
+      next.add(foodId);
     }
     setSelectedFoodIds(next);
   };
@@ -191,8 +266,8 @@ export default function ModalScreen() {
 
     // Build title from selected food names when available
     const selectedNames = currentStationFoods
-      .filter((it) => selectedFoodIds.has(it.id))
-      .map((it) => it.name);
+      .filter((item: any) => selectedFoodIds.has(item.name || ""))
+      .map((item: any) => item.name);
 
     const title =
       selectedNames.length > 0
@@ -232,90 +307,177 @@ export default function ModalScreen() {
         <ThemedText type="subtitle" style={styles.sectionLabel}>
           Dining Hall
         </ThemedText>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.pillScroll}
-        >
-          {DINING_HALLS.map((hall) => (
-            <Pressable
-              key={hall}
-              onPress={() => {
-                setSelectedHall(hall);
-                setSelectedStation(null);
-                setSelectedFoodIds(new Set());
-              }}
-              style={[
-                styles.pill,
-                {
-                  backgroundColor:
-                    selectedHall === hall ? theme.primary : theme.pillBg,
-                },
-              ]}
-            >
-              <ThemedText
+        {loading ? (
+          <View style={[styles.emptyState, { backgroundColor: theme.surfaceHighlight }]}>
+            <ThemedText style={[styles.emptyStateText, { color: theme.textSecondary }]}>
+              Loading dining halls...
+            </ThemedText>
+          </View>
+        ) : availableHalls.length === 0 ? (
+          <View style={[styles.emptyState, { backgroundColor: theme.surfaceHighlight }]}>
+            <Ionicons name="warning-outline" size={40} color={theme.textSecondary} />
+            <ThemedText style={[styles.emptyStateText, { color: theme.textSecondary, marginTop: 10 }]}>
+              No dining halls available
+            </ThemedText>
+            <ThemedText style={[styles.emptyStateSubtext, { color: theme.textSecondary }]}>
+              Please check back later
+            </ThemedText>
+          </View>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.pillScroll}
+          >
+            {availableHalls.map((hall) => (
+              <Pressable
+                key={hall}
+                onPress={() => {
+                  setSelectedHall(hall);
+                  setSelectedMeal(null);
+                  setSelectedStation(null);
+                  setSelectedFoodIds(new Set());
+                }}
                 style={[
-                  styles.pillText,
+                  styles.pill,
                   {
-                    color: selectedHall === hall ? "#fff" : theme.pillText,
-                    fontWeight: selectedHall === hall ? "bold" : "normal",
+                    backgroundColor:
+                      selectedHall === hall ? theme.primary : theme.pillBg,
                   },
                 ]}
               >
-                {hall}
-              </ThemedText>
-            </Pressable>
-          ))}
-        </ScrollView>
+                <ThemedText
+                  style={[
+                    styles.pillText,
+                    {
+                      color: selectedHall === hall ? "#fff" : theme.pillText,
+                      fontWeight: selectedHall === hall ? "bold" : "normal",
+                    },
+                  ]}
+                >
+                  {hall}
+                </ThemedText>
+              </Pressable>
+            ))}
+          </ScrollView>
+        )}
 
-        {/* 2. STATION SELECTOR */}
+        {/* 2. MEAL SELECTOR */}
         {selectedHall && (
+          <>
+            <ThemedText type="subtitle" style={styles.sectionLabel}>
+              Meal
+            </ThemedText>
+            {availableMeals.length === 0 ? (
+              <View style={[styles.emptyState, { backgroundColor: theme.surfaceHighlight }]}>
+                <Ionicons name="information-circle-outline" size={40} color={theme.textSecondary} />
+                <ThemedText style={[styles.emptyStateText, { color: theme.textSecondary, marginTop: 10 }]}>
+                  No meals available
+                </ThemedText>
+                <ThemedText style={[styles.emptyStateSubtext, { color: theme.textSecondary }]}>
+                  No meals found for this dining hall
+                </ThemedText>
+              </View>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.pillScroll}
+              >
+                {availableMeals.map((meal) => (
+                  <Pressable
+                    key={meal}
+                    onPress={() => {
+                      setSelectedMeal(meal);
+                      setSelectedStation(null);
+                      setSelectedFoodIds(new Set());
+                    }}
+                    style={[
+                      styles.pill,
+                      {
+                        backgroundColor:
+                          selectedMeal === meal ? theme.primary : theme.pillBg,
+                      },
+                    ]}
+                  >
+                    <ThemedText
+                      style={[
+                        styles.pillText,
+                        {
+                          color: selectedMeal === meal ? "#fff" : theme.pillText,
+                          fontWeight: selectedMeal === meal ? "bold" : "normal",
+                        },
+                      ]}
+                    >
+                      {meal.charAt(0).toUpperCase() + meal.slice(1)}
+                    </ThemedText>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
+          </>
+        )}
+
+        {/* 3. STATION SELECTOR */}
+        {selectedHall && selectedMeal && (
           <>
             <ThemedText type="subtitle" style={styles.sectionLabel}>
               Station
             </ThemedText>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.pillScroll}
-            >
-              {STATIONS[selectedHall].map((station) => (
-                <Pressable
-                  key={station}
-                  onPress={() => {
-                    setSelectedStation(station);
-                    setSelectedFoodIds(new Set());
-                  }}
-                  style={[
-                    styles.pill,
-                    {
-                      backgroundColor:
-                        selectedStation === station
-                          ? theme.primary
-                          : theme.pillBg,
-                    },
-                  ]}
-                >
-                  <ThemedText
+            {availableStations.length === 0 ? (
+              <View style={[styles.emptyState, { backgroundColor: theme.surfaceHighlight }]}>
+                <Ionicons name="information-circle-outline" size={40} color={theme.textSecondary} />
+                <ThemedText style={[styles.emptyStateText, { color: theme.textSecondary, marginTop: 10 }]}>
+                  No stations available
+                </ThemedText>
+                <ThemedText style={[styles.emptyStateSubtext, { color: theme.textSecondary }]}>
+                  {selectedMeal.charAt(0).toUpperCase() + selectedMeal.slice(1)} has no food stations at the moment
+                </ThemedText>
+              </View>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.pillScroll}
+              >
+                {availableStations.map((station) => (
+                  <Pressable
+                    key={station}
+                    onPress={() => {
+                      setSelectedStation(station);
+                      setSelectedFoodIds(new Set());
+                    }}
                     style={[
-                      styles.pillText,
+                      styles.pill,
                       {
-                        color:
-                          selectedStation === station ? "#fff" : theme.pillText,
-                        fontWeight:
-                          selectedStation === station ? "bold" : "normal",
+                        backgroundColor:
+                          selectedStation === station
+                            ? theme.primary
+                            : theme.pillBg,
                       },
                     ]}
                   >
-                    {station}
-                  </ThemedText>
-                </Pressable>
-              ))}
-            </ScrollView>
+                    <ThemedText
+                      style={[
+                        styles.pillText,
+                        {
+                          color:
+                            selectedStation === station ? "#fff" : theme.pillText,
+                          fontWeight:
+                            selectedStation === station ? "bold" : "normal",
+                        },
+                      ]}
+                    >
+                      {station}
+                    </ThemedText>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
           </>
         )}
 
-        {/* 3. FOOD LIST */}
+        {/* 4. FOOD LIST */}
         {selectedStation && (
           <>
             <View style={styles.listHeader}>
@@ -327,47 +489,75 @@ export default function ModalScreen() {
               </ThemedText>
             </View>
 
-            <View style={styles.foodList}>
-              {currentStationFoods.map((item) => {
-                const isSelected = selectedFoodIds.has(item.id);
-                return (
-                  <Pressable
-                    key={item.id}
-                    onPress={() => toggleFood(item.id)}
-                    style={[
-                      styles.foodItem,
-                      {
-                        backgroundColor: isSelected
-                          ? theme.primaryLight
-                          : theme.surface,
-                        borderColor: isSelected ? theme.primary : theme.border,
-                      },
-                    ]}
-                  >
-                    <View style={styles.foodInfo}>
-                      <ThemedText type="defaultSemiBold">
-                        {item.name}
-                      </ThemedText>
-                      <ThemedText
-                        style={{
-                          fontSize: 12,
-                          color: theme.textSecondary,
-                          marginTop: 4,
-                        }}
-                      >
-                        {item.calories} kcal • P: {item.protein}g • C:{" "}
-                        {item.carbs}g • F: {item.fat}g
-                      </ThemedText>
-                    </View>
-                    <Ionicons
-                      name={isSelected ? "checkbox" : "square-outline"}
-                      size={24}
-                      color={isSelected ? theme.primary : theme.textSecondary}
-                    />
-                  </Pressable>
-                );
-              })}
-            </View>
+            {currentStationFoods.length === 0 ? (
+              <View style={[styles.emptyState, { backgroundColor: theme.surfaceHighlight }]}>
+                <Ionicons name="information-circle-outline" size={40} color={theme.textSecondary} />
+                <ThemedText style={[styles.emptyStateText, { color: theme.textSecondary, marginTop: 10 }]}>
+                  No items available
+                </ThemedText>
+              </View>
+            ) : (
+              <View style={styles.foodList}>
+                {currentStationFoods.map((item: any, index: number) => {
+                  const itemId = item.name || `item_${index}`;
+                  const isSelected = selectedFoodIds.has(itemId);
+                  const foodName = item.name || "Unknown Item";
+                  const nutrition = item.nutrition || {};
+                  const protein = nutrition.g_protein || 0;
+                  const carbs = nutrition.g_carbs || 0;
+                  const fat = nutrition.g_fat || 0;
+                  const calories = (protein * 4) + (carbs * 4) + (fat * 9);
+
+                  return (
+                    <Pressable
+                      key={itemId}
+                      onPress={() => toggleFood(itemId)}
+                      style={[
+                        styles.foodItem,
+                        {
+                          backgroundColor: isSelected
+                            ? theme.primaryLight
+                            : theme.surface,
+                          borderColor: isSelected ? theme.primary : theme.border,
+                        },
+                      ]}
+                    >
+                      <View style={styles.foodInfo}>
+                        <ThemedText type="defaultSemiBold">
+                          {foodName}
+                        </ThemedText>
+                        {item.description && (
+                          <ThemedText
+                            style={{
+                              fontSize: 11,
+                              color: theme.textSecondary,
+                              marginTop: 2,
+                            }}
+                          >
+                            {item.description}
+                          </ThemedText>
+                        )}
+                        <ThemedText
+                          style={{
+                            fontSize: 12,
+                            color: theme.textSecondary,
+                            marginTop: 4,
+                          }}
+                        >
+                          {calories} kcal • P: {protein}g • C:{" "}
+                          {carbs}g • F: {fat}g
+                        </ThemedText>
+                      </View>
+                      <Ionicons
+                        name={isSelected ? "checkbox" : "square-outline"}
+                        size={24}
+                        color={isSelected ? theme.primary : theme.textSecondary}
+                      />
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
           </>
         )}
 
@@ -550,5 +740,21 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
     fontSize: 16,
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginBottom: 10,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  emptyStateSubtext: {
+    fontSize: 13,
+    marginTop: 6,
   },
 });

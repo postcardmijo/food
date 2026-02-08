@@ -13,12 +13,12 @@ import {
   GestureHandlerRootView,
   Swipeable,
 } from "react-native-gesture-handler";
+import { useRouter } from "expo-router";
 
 import ParallaxScrollView from "@/components/parallax-scroll-view";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { useMeals } from "@/contexts/MealsContext";
-import { Link } from "expo-router";
 
 const Colors = {
   light: {
@@ -40,15 +40,23 @@ const Colors = {
 };
 
 const MACRO_COLORS = {
-  protein: "#FF7043",
-  carbs: "#42A5F5",
-  fat: "#FFCA28",
+  protein: "#4ECDC4",
+  carbs: "#FFE66D",
+  fat: "#FF6B6B",
 };
 
 export default function HomeScreen() {
   const { meals, deleteMeal } = useMeals();
+  const router = useRouter();
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
+
+  // Format today's date dynamically
+  const today = new Date();
+  const dayName = today.toLocaleDateString("en-US", { weekday: "long" });
+  const month = today.toLocaleDateString("en-US", { month: "short" });
+  const day = today.getDate();
+  const todayDateString = `${dayName}, ${month} ${day}`;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -56,7 +64,7 @@ export default function HomeScreen() {
         headerBackgroundColor={{ light: "#E8F5E9", dark: "#121212" }}
         headerImage={
           <Image
-            source={require("@/assets/images/partial-react-logo.png")}
+            source={require("@/assets/images/images.jpg")}
             style={styles.headerImage}
             contentFit="cover"
           />
@@ -65,7 +73,7 @@ export default function HomeScreen() {
         <ThemedView style={styles.titleContainer}>
           <View>
             <ThemedText type="subtitle" style={{ color: theme.textSecondary }}>
-              Friday, Feb 6
+              {todayDateString}
             </ThemedText>
             <ThemedText type="title" style={styles.mainHeader}>
               Daily Intake
@@ -109,19 +117,18 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.buttonContainer}>
-          <Link href="/modal" asChild>
-            <Pressable
-              style={({ pressed }) => [
-                styles.actionButton,
-                { opacity: pressed ? 0.8 : 1 },
-              ]}
-            >
-              <View style={styles.buttonContent}>
-                <Ionicons name="add" size={28} color="#fff" />
-                <Text style={styles.actionButtonText}>LOG NEW MEAL</Text>
-              </View>
-            </Pressable>
-          </Link>
+          <Pressable
+            onPress={() => router.push("modal" as any)}
+            style={({ pressed }) => [
+              styles.actionButton,
+              { opacity: pressed ? 0.8 : 1 },
+            ]}
+          >
+            <View style={styles.buttonContent}>
+              <Ionicons name="add" size={28} color="#fff" />
+              <Text style={styles.actionButtonText}>LOG NEW MEAL</Text>
+            </View>
+          </Pressable>
         </View>
       </ParallaxScrollView>
     </GestureHandlerRootView>
