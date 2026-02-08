@@ -8,6 +8,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  TextInput,
   useColorScheme,
   View,
 } from "react-native";
@@ -230,6 +231,13 @@ export default function ModalScreen() {
   );
   const [servingSize, setServingSize] = useState(1);
 
+  // --- CUSTOM FOOD STATE ---
+  const [isCustomEntry, setIsCustomEntry] = useState(false);
+  const [customFoodName, setCustomFoodName] = useState("");
+  const [customProtein, setCustomProtein] = useState("");
+  const [customCarbs, setCustomCarbs] = useState("");
+  const [customFat, setCustomFat] = useState("");
+
   // --- FETCH API DATA ---
   useEffect(() => {
     async function fetchFoodWithCache() {
@@ -369,6 +377,26 @@ export default function ModalScreen() {
   };
 
   const handleAddFood = () => {
+    if (isCustomEntry) {
+      if (!customFoodName.trim()) {
+        Alert.alert("Missing Name", "Please enter a food name.");
+        return;
+      }
+      const p = parseFloat(customProtein) || 0;
+      const c = parseFloat(customCarbs) || 0;
+      const f = parseFloat(customFat) || 0;
+
+      addMeal({
+        id: Date.now(),
+        title: customFoodName,
+        protein: p,
+        carbs: c,
+        fat: f,
+      });
+      router.back();
+      return;
+    }
+
     if (totals.calories === 0) {
       Alert.alert("Select Items", "Please select at least one food item.");
       return;
@@ -418,6 +446,115 @@ export default function ModalScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* MODE TOGGLE */}
+        <View style={{ flexDirection: "row", marginBottom: 20, backgroundColor: theme.surfaceHighlight, borderRadius: 8, padding: 4 }}>
+          <Pressable
+            style={{
+              flex: 1,
+              paddingVertical: 8,
+              alignItems: "center",
+              backgroundColor: !isCustomEntry ? theme.surface : "transparent",
+              borderRadius: 6,
+              shadowColor: !isCustomEntry ? "#000" : "transparent",
+              shadowOpacity: !isCustomEntry ? 0.1 : 0,
+              shadowRadius: 2,
+            }}
+            onPress={() => setIsCustomEntry(false)}
+          >
+            <ThemedText style={{ fontWeight: !isCustomEntry ? "bold" : "normal" }}>Dining Hall</ThemedText>
+          </Pressable>
+          <Pressable
+            style={{
+              flex: 1,
+              paddingVertical: 8,
+              alignItems: "center",
+              backgroundColor: isCustomEntry ? theme.surface : "transparent",
+              borderRadius: 6,
+              shadowColor: isCustomEntry ? "#000" : "transparent",
+              shadowOpacity: isCustomEntry ? 0.1 : 0,
+              shadowRadius: 2,
+            }}
+            onPress={() => setIsCustomEntry(true)}
+          >
+            <ThemedText style={{ fontWeight: isCustomEntry ? "bold" : "normal" }}>Miscellaneous</ThemedText>
+          </Pressable>
+        </View>
+
+        {isCustomEntry ? (
+          <View style={{ gap: 16 }}>
+             <View>
+              <ThemedText style={{ marginBottom: 8, fontWeight: "600" }}>Food Name</ThemedText>
+              <TextInput
+                style={{
+                    backgroundColor: theme.surfaceHighlight,
+                    padding: 12,
+                    borderRadius: 8,
+                    color: theme.text,
+                    fontSize: 16
+                }}
+                placeholder="e.g., Homemade Sandwich"
+                placeholderTextColor={theme.textSecondary}
+                value={customFoodName}
+                onChangeText={setCustomFoodName}
+               />
+             </View>
+
+             <View style={{ flexDirection: "row", gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <ThemedText style={{ marginBottom: 8, fontWeight: "600" }}>Protein (g)</ThemedText>
+                  <TextInput
+                    style={{
+                        backgroundColor: theme.surfaceHighlight,
+                        padding: 12,
+                        borderRadius: 8,
+                        color: theme.text,
+                        fontSize: 16
+                    }}
+                    placeholder="0"
+                    placeholderTextColor={theme.textSecondary}
+                    keyboardType="numeric"
+                    value={customProtein}
+                    onChangeText={setCustomProtein}
+                   />
+                 </View>
+                 <View style={{ flex: 1 }}>
+                  <ThemedText style={{ marginBottom: 8, fontWeight: "600" }}>Carbs (g)</ThemedText>
+                  <TextInput
+                    style={{
+                        backgroundColor: theme.surfaceHighlight,
+                        padding: 12,
+                        borderRadius: 8,
+                        color: theme.text,
+                        fontSize: 16
+                    }}
+                    placeholder="0"
+                    placeholderTextColor={theme.textSecondary}
+                    keyboardType="numeric"
+                    value={customCarbs}
+                    onChangeText={setCustomCarbs}
+                   />
+                 </View>
+                 <View style={{ flex: 1 }}>
+                  <ThemedText style={{ marginBottom: 8, fontWeight: "600" }}>Fat (g)</ThemedText>
+                  <TextInput
+                    style={{
+                        backgroundColor: theme.surfaceHighlight,
+                        padding: 12,
+                        borderRadius: 8,
+                        color: theme.text,
+                        fontSize: 16
+                    }}
+                    placeholder="0"
+                    placeholderTextColor={theme.textSecondary}
+                    keyboardType="numeric"
+                    value={customFat}
+                    onChangeText={setCustomFat}
+                   />
+                 </View>
+             </View>
+          </View>
+        ) : (
+          <>
         {/* DINING HALL SELECTOR */}
         <ThemedText type="subtitle" style={styles.sectionLabel}>
           Dining Hall
@@ -622,6 +759,8 @@ export default function ModalScreen() {
             </View>
           </>
         )}
+          </>
+        )}
         <View style={{ height: 140 }} />
       </ScrollView>
 
@@ -632,6 +771,7 @@ export default function ModalScreen() {
           { backgroundColor: theme.surface, borderTopColor: theme.border },
         ]}
       >
+        {!isCustomEntry && (
         <View style={styles.multiplierRow}>
           <ThemedText style={styles.totalLabel}>Servings:</ThemedText>
           <View
@@ -655,14 +795,17 @@ export default function ModalScreen() {
             </Pressable>
           </View>
         </View>
+        )}
 
         <View style={styles.summaryRow}>
+          {!isCustomEntry ? (
           <View>
             <ThemedText type="subtitle">{totals.calories} Calories</ThemedText>
             <ThemedText style={{ fontSize: 12, color: theme.textSecondary }}>
               P: {totals.protein}g C: {totals.carbs}g
             </ThemedText>
           </View>
+          ) : <View />}
 
           <Pressable
             style={[styles.addButton, { backgroundColor: theme.primary }]}
