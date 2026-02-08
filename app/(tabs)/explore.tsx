@@ -1,11 +1,10 @@
-import { StyleSheet } from "react-native";
 import { Image } from "expo-image";
+import { StyleSheet } from "react-native";
 
 import ParallaxScrollView from "@/components/parallax-scroll-view";
 import { SimplePieChart } from "@/components/pie-chart";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Fonts } from "@/constants/theme";
 import { useMeals } from "@/contexts/MealsContext";
 
@@ -25,7 +24,7 @@ export default function TabTwoScreen() {
   const totalSum = totals.fat + totals.protein + totals.carbs;
   return (
     <ParallaxScrollView
-      headerBackgroundColor={{ light: "#D0D0D0", dark: "#353636" }}
+      headerBackgroundColor={{ light: "#E8F5E9", dark: "#121212" }}
       headerImage={
         <Image
           source={require("@/assets/images/images.jpg")}
@@ -110,10 +109,10 @@ export default function TabTwoScreen() {
 
 const styles = StyleSheet.create({
   headerImage: {
-    color: "#808080",
-    bottom: -90,
-    left: -35,
+    width: "100%",
+    height: "100%",
     position: "absolute",
+    opacity: 0.5,
   },
   titleContainer: {
     flexDirection: "row",
