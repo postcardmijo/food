@@ -1,4 +1,4 @@
-# Dawgbone
+# DawgBite
 ### Team - Kaushal Bevara, Mohan Kamath, Ethan Goes, Nikheth Kanala
 
 An easier way to assess the needs of the UGA dining halls, while also providing students with a way to receive personalized meal recommendations from Gemini. 
@@ -11,7 +11,7 @@ An easier way to assess the needs of the UGA dining halls, while also providing 
 
 ## Usage
 
-Our intuitive interface makes it easy to benefit from Dawgbone, whether you're a student or a dining services manager.
+Our intuitive interface makes it easy to benefit from DawgBite, whether you're a student or a dining services manager.
 
 ### Students
 1. Login with your UGA account
