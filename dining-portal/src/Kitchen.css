@@ -1,0 +1,91 @@
+/* src/Kitchen.css */
+
+.kitchen-container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.kitchen-header {
+  text-align: center;
+  margin-bottom: 30px;
+  color: #2c3e50;
+  border-bottom: 2px solid #eee;
+  padding-bottom: 10px;
+}
+
+/* Responsive Grid Layout */
+.kitchen-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+/* Individual Food Card */
+.food-control-card {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.food-control-card h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 1.4rem;
+  color: #333;
+}
+
+.current-stat {
+  font-size: 1.1rem;
+  color: #555;
+  margin-bottom: 20px;
+  font-weight: 500;
+}
+
+/* Button Container */
+.button-group {
+  display: flex;
+  gap: 15px;
+  margin-top: auto; /* Pushes buttons to the bottom of the card */
+}
+
+/* Base Button Style */
+.button-group button {
+  flex: 1; /* Both buttons take equal width */
+  padding: 15px;
+  font-size: 1.1rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: transform 0.1s ease, filter 0.2s;
+  color: white;
+}
+
+/* Green Refill Button */
+.btn-refill {
+  background-color: #28a745;
+  box-shadow: 0 4px 0 #218838; /* 3D effect */
+}
+
+.btn-refill:active {
+  transform: translateY(4px); /* Press down effect */
+  box-shadow: 0 0 0 #218838;
+}
+
+/* Red Empty Button */
+.btn-empty {
+  background-color: #dc3545;
+  box-shadow: 0 4px 0 #c82333; /* 3D effect */
+}
+
+.btn-empty:active {
+  transform: translateY(4px); /* Press down effect */
+  box-shadow: 0 0 0 #c82333;
+}
