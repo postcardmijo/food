@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Image } from "expo-image";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -18,6 +18,7 @@ import ParallaxScrollView from "@/components/parallax-scroll-view";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { useMeals } from "@/contexts/MealsContext";
+import { getFoodItems } from "../modal"; // <-- Adjusted import path
 
 interface Message {
   id: string;
@@ -49,9 +50,12 @@ const Colors = {
   },
 };
 
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.EXPO_PUBLIC_GEMINI_API_KEY || "");
-const model = genAI.getGenerativeModel({ 
+// ---------------- GEMINI SETUP ----------------
+const genAI = new GoogleGenerativeAI(
+  process.env.EXPO_PUBLIC_GEMINI_API_KEY || "",
+);
+
+const model = genAI.getGenerativeModel({
   model: "gemini-2.0-flash",
   generationConfig: {
     temperature: 0.7,
@@ -61,21 +65,24 @@ const model = genAI.getGenerativeModel({
   },
 });
 
-// System prompt to make it nutrition-focused
 const SYSTEM_CONTEXT = `You are a helpful nutrition assistant. You provide accurate, science-based advice about nutrition, meal planning, healthy eating, macronutrients, calories, and dietary recommendations. Be friendly, concise, and supportive.`;
 
+// ---------------- COMPONENT ----------------
 export default function ChatbotScreen() {
   const { meals } = useMeals();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      text: "Hi! I'm your nutrition assistant powered by Google Gemini. Ask me anything about nutrition, meal planning, or healthy eating!",
+      text: "Hi! I'm your AI nutrition assistant. Ask me anything about today's dining options 😊",
       isUser: false,
       timestamp: new Date(),
     },
   ]);
+
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [foodContext, setFoodContext] = useState<string>("");
+
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
 
@@ -127,8 +134,43 @@ export default function ChatbotScreen() {
     return lines.join("\n");
   }, [meals]);
 
+  // ---------------- FETCH FOOD ITEMS ----------------
+  useEffect(() => {
+    async function fetchFood() {
+      try {
+        const data = await getFoodItems();
+        const halls = data.filtered;
+        let contextStr = "Today's available food items:\n\n";
+        for (const hallName in halls) {
+          const meals = halls[hallName].meals;
+          contextStr += `Dining Hall: ${hallName}\n`;
+          for (const mealName in meals) {
+            contextStr += `  Meal: ${mealName}\n`;
+            const stations = meals[mealName];
+            for (const stationName in stations) {
+              contextStr += `    Station: ${stationName}\n`;
+              const foods = stations[stationName];
+              for (const food of foods) {
+                const dietary = food.dietary_info?.length
+                  ? ` [${food.dietary_info.join(", ")}]`
+                  : "";
+                contextStr += `      - ${food.name}${dietary}: ${food.description || "No description"}\n`;
+              }
+            }
+          }
+        }
+        setFoodContext(contextStr);
+      } catch (error) {
+        console.error("Failed to fetch food context:", error);
+        setFoodContext("No food items available today.");
+      }
+    }
+    fetchFood();
+  }, []);
+
+  // ---------------- SEND MESSAGE ----------------
   const handleSend = async () => {
-    if (inputText.trim() === "" || isLoading) return;
+    if (!inputText.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -138,7 +180,6 @@ export default function ChatbotScreen() {
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    const userInput = inputText;
     setInputText("");
     setIsLoading(true);
 
@@ -161,31 +202,34 @@ export default function ChatbotScreen() {
         ],
       });
 
-      const result = await chat.sendMessage(userInput);
-      const response = await result.response;
-      const text = response.text();
+      const result = await chat.sendMessage(inputText);
+      const text = result.response.text();
 
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: text,
+        text,
         isUser: false,
         timestamp: new Date(),
       };
+
       setMessages((prev) => [...prev, botMessage]);
     } catch (error) {
       console.error("Gemini API error:", error);
+
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: "Sorry, I encountered an error. Please check your API key and try again.",
+        text: "⚠️ Something went wrong. Please check your API key or internet connection.",
         isUser: false,
         timestamp: new Date(),
       };
+
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // ---------------- UI ----------------
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: "#E8F5E9", dark: "#121212" }}
@@ -200,6 +244,7 @@ export default function ChatbotScreen() {
       <ThemedView style={styles.titleContainer}>
         <ThemedText type="title">AI Nutrition Assistant</ThemedText>
       </ThemedView>
+
       <ThemedText style={[styles.subtitle, { color: theme.textSecondary }]}>
         Powered by Google Gemini
       </ThemedText>
@@ -215,14 +260,8 @@ export default function ChatbotScreen() {
               style={[
                 styles.messageBubble,
                 message.isUser
-                  ? [
-                      styles.userMessage,
-                      { backgroundColor: theme.userMessage },
-                    ]
-                  : [
-                      styles.botMessage,
-                      { backgroundColor: theme.botMessage },
-                    ],
+                  ? [styles.userMessage, { backgroundColor: theme.userMessage }]
+                  : [styles.botMessage, { backgroundColor: theme.botMessage }],
               ]}
             >
               <ThemedText
@@ -233,6 +272,7 @@ export default function ChatbotScreen() {
               >
                 {message.text}
               </ThemedText>
+
               <ThemedText
                 style={[
                   styles.timestamp,
@@ -246,6 +286,7 @@ export default function ChatbotScreen() {
               </ThemedText>
             </View>
           ))}
+
           {isLoading && (
             <View
               style={[
@@ -255,20 +296,20 @@ export default function ChatbotScreen() {
               ]}
             >
               <ActivityIndicator size="small" color={theme.primary} />
-              <ThemedText style={[styles.messageText, { opacity: 0.7, marginTop: 8 }]}>
+              <ThemedText
+                style={[styles.messageText, { opacity: 0.7, marginTop: 8 }]}
+              >
                 Thinking...
               </ThemedText>
             </View>
           )}
         </ScrollView>
 
+        {/* INPUT BAR */}
         <View
           style={[
             styles.inputContainer,
-            {
-              backgroundColor: theme.inputBg,
-              borderColor: theme.border,
-            },
+            { backgroundColor: theme.inputBg, borderColor: theme.border },
           ]}
         >
           <TextInput
@@ -278,20 +319,18 @@ export default function ChatbotScreen() {
             ]}
             value={inputText}
             onChangeText={setInputText}
-            placeholder="Ask about nutrition..."
+            placeholder="Ask about today's meals..."
             placeholderTextColor={theme.textSecondary}
             multiline
             maxLength={500}
             onSubmitEditing={handleSend}
             editable={!isLoading}
           />
+
           <Pressable
             style={[
               styles.sendButton,
-              { 
-                backgroundColor: theme.primary,
-                opacity: isLoading ? 0.5 : 1,
-              }
+              { backgroundColor: theme.primary, opacity: isLoading ? 0.5 : 1 },
             ]}
             onPress={handleSend}
             disabled={isLoading}
@@ -304,6 +343,7 @@ export default function ChatbotScreen() {
   );
 }
 
+// ---------------- STYLES ----------------
 const styles = StyleSheet.create({
   headerImage: {
     width: "100%",
