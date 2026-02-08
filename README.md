@@ -3,13 +3,6 @@
 
 An easier way to assess the needs of the UGA dining halls, while also providing students with a way to receive personalized meal recommendations from Gemini. 
 
-## Technologies used
-* Firebase - Stores all food consumption data
-* Gemini - UI development, engine for recommendations and restock predictions
-* Typescript & React Native - Front end
-* Expo - Real time testing & local storage to your device
-* Recharts - Displays graph of food consumption over time 
-
 ## Features
 * Effective UI for managers and students
 * Accurate predictions of when restocks need to be made
@@ -30,5 +23,12 @@ Our intuitive interface makes it easy to benefit from Dawgbone, whether you're a
 ### Managers
 1. Log in with your manager account
 2. You can see all foods available at each dining hall and an estimate of how much is left
-3. Go to the "Kitchen" tab to see a detailed graph of how much of a selected item has been eaten over time, and when Gemini expects a restock will be needed
+3. Go to the "Kitchen" tab to see a detailed graph of how much of a selected item has been eaten over time, and when our prediction model expects a restock will be needed
+
+## Technologies used
+* Firebase - Stores all food consumption data
+* Gemini - UI development, engine for recommendations and restock predictions
+* Typescript & React Native - Front end
+* Expo - Real time testing & local storage to your device
+* Recharts - Displays graph of food consumption over time 
 
