@@ -80,10 +80,7 @@ export const MealsProvider: React.FC<{ children: React.ReactNode }> = ({
   const getDailyProgress = (): DailyProgress[] => {
     const dailyMap = new Map<string, DailyProgress>();
 
-    // Filter out meals that start with asterisk
-    const validMeals = meals.filter((meal) => !meal.title.startsWith('*'));
-
-    validMeals.forEach((meal) => {
+    meals.forEach((meal) => {
       const date = meal.date || new Date().toISOString().split('T')[0];
       const existing = dailyMap.get(date) || {
         date,

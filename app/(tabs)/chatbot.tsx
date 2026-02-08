@@ -1,22 +1,23 @@
 import { Ionicons } from "@expo/vector-icons";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Image } from "expo-image";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    View,
-    useColorScheme,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+  useColorScheme,
 } from "react-native";
 
 import ParallaxScrollView from "@/components/parallax-scroll-view";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { useMeals } from "@/contexts/MealsContext";
 
 interface Message {
   id: string;
@@ -64,6 +65,7 @@ const model = genAI.getGenerativeModel({
 const SYSTEM_CONTEXT = `You are a helpful nutrition assistant. You provide accurate, science-based advice about nutrition, meal planning, healthy eating, macronutrients, calories, and dietary recommendations. Be friendly, concise, and supportive.`;
 
 export default function ChatbotScreen() {
+  const { meals } = useMeals();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
@@ -76,6 +78,54 @@ export default function ChatbotScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
+
+  const mealsContextText = useMemo(() => {
+    if (!meals.length) return "No logged meals yet.";
+
+    const MAX_MEALS = 20;
+    const today = new Date().toISOString().split('T')[0];
+    
+    const sorted = [...meals].sort((a, b) => {
+      const da = a.date ?? "";
+      const db = b.date ?? "";
+      if (da !== db) return db.localeCompare(da);
+      return String(b.id).localeCompare(String(a.id));
+    });
+
+    const recent = sorted.slice(0, MAX_MEALS);
+    const lines: string[] = [];
+    const byDate = new Map<string, (typeof recent)>();
+
+    recent.forEach((meal) => {
+      const dateKey = meal.date ?? "unknown-date";
+      if (!byDate.has(dateKey)) byDate.set(dateKey, []);
+      byDate.get(dateKey)?.push(meal);
+    });
+
+    Array.from(byDate.entries()).forEach(([date, items]) => {
+      const isToday = date === today;
+      const dateLabel = isToday ? `**TODAY (${date})**` : `${date}`;
+      lines.push(dateLabel);
+      
+      let dayProtein = 0, dayCarbs = 0, dayFat = 0;
+      items.forEach((meal) => {
+        dayProtein += meal.protein;
+        dayCarbs += meal.carbs;
+        dayFat += meal.fat;
+        lines.push(
+          `  - ${meal.title} (P ${meal.protein}g, C ${meal.carbs}g, F ${meal.fat}g)`
+        );
+      });
+      
+      const calories = dayProtein * 4 + dayCarbs * 4 + dayFat * 9;
+      lines.push(
+        `  Daily Total: P ${dayProtein}g, C ${dayCarbs}g, F ${dayFat}g, ${calories} kcal`
+      );
+      lines.push("");
+    });
+
+    return lines.join("\n");
+  }, [meals]);
 
   const handleSend = async () => {
     if (inputText.trim() === "" || isLoading) return;
@@ -98,11 +148,15 @@ export default function ChatbotScreen() {
         history: [
           {
             role: "user",
-            parts: [{ text: SYSTEM_CONTEXT }],
+            parts: [
+              {
+                text: `${SYSTEM_CONTEXT}\n\nUser's meal log (most recent 20 meals, organized by date):\n${mealsContextText}\nBased on this log, help the user with nutrition advice and recommendations.`,
+              },
+            ],
           },
           {
             role: "model",
-            parts: [{ text: "Understood! I'm here to help with nutrition advice. What would you like to know?" }],
+            parts: [{ text: "Understood! I've reviewed your meal log. I'm here to help with nutrition advice based on what you've been eating. What would you like to know?" }],
           },
         ],
       });
